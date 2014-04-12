@@ -9,8 +9,8 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
 http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/jetty/current/mule-jetty.xsd">
-    <apikit:config name="mcdonalds-config" raml="mcdonalds.raml" consoleEnabled="true" consolePath="console" doc:name="Router" />
-    <apikit:mapping-exception-strategy name="mcdonalds-apiKitGlobalExceptionMapping">
+    <apikit:config name="api-config" raml="amqp-api.raml" consoleEnabled="true" consolePath="console" doc:name="Router" />
+    <apikit:mapping-exception-strategy name="api-apiKitGlobalExceptionMapping">
         <apikit:mapping statusCode="404">
             <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
             <set-property propertyName="Content-Type" value="application/json" />
@@ -38,19 +38,19 @@ http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/je
         </apikit:mapping>
     </apikit:mapping-exception-strategy>
     <amqp:connector name="AMQP_Connector1" validateConnections="true" host="lemur.cloudamqp.com" virtualHost="kyhchvds" username="kyhchvds" password="szb4h6byPHc8d6PTVSutvgUh2Ly0crJu" doc:name="AMQP Connector" ackMode="MANUAL" />
-    <db:mysql-config name="MySQL_Configuration" host="mule-demo-repository.cdumb7bgzajt.us-east-1.rds.amazonaws.com" port="3306" user="mule" password="Mule1379" database="mcdonalds" doc:name="MySQL Configuration" />
-    <flow name="mcdonalds-main" doc:name="mcdonalds-main">
+    <db:mysql-config name="MySQL_Configuration" host="mule-demo-repository.cdumb7bgzajt.us-east-1.rds.amazonaws.com" port="3306" user="mule" password="Mule1379" database="api" doc:name="MySQL Configuration" />
+    <flow name="api-main" doc:name="api-main">
         <http:inbound-endpoint exchange-pattern="request-response" address="http://localhost:8081/api" doc:name="HTTP" />
-        <apikit:router config-ref="mcdonalds-config" doc:name="APIkit Router" />
-        <exception-strategy ref="mcdonalds-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy" />
+        <apikit:router config-ref="api-config" doc:name="APIkit Router" />
+        <exception-strategy ref="api-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy" />
     </flow>
-    <flow name="post:/orders:mcdonalds-config" doc:name="post:/orders:mcdonalds-config">
+    <flow name="post:/orders:api-config" doc:name="post:/orders:api-config">
         <set-variable variableName="apiUrl" value="#[message.inboundProperties['http.context.uri']]" doc:name="apiUrl" />
         <set-property propertyName="order-code" value="#[System.currentTimeMillis()]" doc:name="order-code" />
         <amqp:outbound-endpoint responseTimeout="10000" doc:name="Publish by orders-key" connector-ref="AMQP_Connector1" exchangeName="amq.direct" routingKey="orders-key" />
         <set-property propertyName="Location" value="#[flowVars.apiUrl + '/orders/' + message.outboundProperties['order-code']]" doc:name="Location" />
     </flow>
-    <flow name="mcdonaldsFlow1" doc:name="mcdonaldsFlow1">
+    <flow name="apiFlow1" doc:name="apiFlow1">
         <amqp:inbound-endpoint responseTimeout="10000" connector-ref="AMQP_Connector1" doc:name="Consume from orders" exchangeName="amq.direct" queueName="orders" />
         <expression-transformer expression="#[json:items]" doc:name="to List" />
         <transactional action="ALWAYS_BEGIN" doc:name="Transactional">
@@ -72,18 +72,18 @@ http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/je
             </on-redelivery-attempts-exceeded>
         </rollback-exception-strategy>
     </flow>
-    <flow name="get:/orders:mcdonalds-config" doc:name="get:/orders:mcdonalds-config">
+    <flow name="get:/orders:api-config" doc:name="get:/orders:api-config">
         <db:select config-ref="MySQL_Configuration" doc:name="select * from orders">
             <db:dynamic-query><![CDATA[select o.code, o.total from orders o #[s = message.inboundProperties.status; s == 'All' ? '' : "where o.status in ('" + s + "')"]]]></db:dynamic-query>
         </db:select>
         <expression-transformer expression="#[ [ 'orders' : payload ] ]" doc:name="orders"/>
     </flow>
-    <flow name="get:/orders/{order}:mcdonalds-config" doc:name="get:/orders/{order}:mcdonalds-config">
+    <flow name="get:/orders/{order}:api-config" doc:name="get:/orders/{order}:api-config">
         <db:select config-ref="MySQL_Configuration" doc:name="select on order_code">
             <db:parameterized-query><![CDATA[select i.sku, i.name, i.price, oi.quantity from order_items oi, orders o, items i where o.code = #[order] and oi.order_id = o.id and oi.sku = i.sku]]></db:parameterized-query>
         </db:select>
     </flow>
-    <flow name="get:/items:mcdonalds-config" doc:name="get:/items:mcdonalds-config">
+    <flow name="get:/items:api-config" doc:name="get:/items:api-config">
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[select * from items]]></db:parameterized-query>
         </db:select>
