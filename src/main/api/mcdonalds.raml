@@ -1,0 +1,187 @@
+#%RAML 0.8
+baseUri: http://mocksvc.mulesoft.com/mocks/c5006186-55e0-4151-a817-ec491c5d528b
+title: McDonalds
+schemas:
+  - items: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "sku" : { "type" : "integer" },
+              "name" : { "type" : "string" },
+              "description" : { "type" : "string" },
+              "price" : { "type" : "number" }
+            }
+          }
+        }    
+      }
+  - orders: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type" : "object",
+        "properties" : {
+          "orders" : {
+            "type" : "array",
+            "items" : {
+              "code" : { "type" : "string" },
+              "total" : { "type" : "number" },
+              "date" : { "type" : "date" }
+            }
+          }
+        }    
+      }
+  - order: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type" : "object",
+        "properties" : {
+          "date" : { "type" : "date" },
+          "status" : { "type" : "string" },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "sku" : { "type" : "integer" },
+              "name" : { "type" : "string" },
+              "description" : { "type" : "string" },
+              "type" : { "type" : "string" },
+              "price" : { "type" : "number" },
+              "quantity" : { "type" : "integer" }
+            }
+          },
+          "total" : { "type" : "number" }
+        }    
+      }
+  - order-request: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "sku" : { "type" : "string" },
+              "quantity" : { "type" : "integer" }
+            }
+          }
+        }    
+      }
+  - status: |
+      {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type" : "object",
+        "properties" : {
+          "status" : { "type" : "string" }
+        }
+      }
+resourceTypes:
+  - base: 
+      get:
+        responses:
+          200:
+            body:
+              application/json:
+                schema: <<schema>>
+  - collection:
+      type: { base : { schema : <<resourcePathName>> } }
+      post:
+        body:
+          application/json:
+            schema: <<resourcePathName | !singularize >>-request
+        responses:
+          202:
+            description: Accepted
+            headers:
+              Location:
+                type: string
+                example: http://localhost:8081/orders/24243214321424
+            
+  - member:
+      type: { base : { schema : <<resourcePathName | !singularize >> } }
+/orders:
+  type: collection
+  post:
+    body:
+      application/json:
+        example: |
+          {
+            "items" : [
+              {
+                "sku" : "BM100",
+                "quantity" : 2
+              },
+              {
+                "sku" : "MCF",
+                "quantity" : 2
+              }
+            ]
+          }
+  get:
+    queryParameters:
+      status:
+        type: string
+        enum: [Pending, Ready, Cancelled, All]
+        required: false
+        default: All
+    responses:
+      200:
+        body:
+          application/json:
+            example: |
+              {
+                "orders" : [
+                  { "code" : "1234234", "total" : 23.50 },
+                  { "code" : "28798765", "total" : 12.95 }
+                ]
+              }
+  /{order}:
+    type: member
+    get:
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "date" : 123421433423,
+                  "status" : "Ready",
+                  "items" : [
+                    {
+                      "name" : "Big Mac",
+                      "price" : 5.95,
+                      "quantity" : 2
+                    },
+                    {
+                      "name" : "Mc Flurry",
+                      "price" : 1.29,
+                      "quantity" : 2
+                    }
+                  ],
+                  "total" : 14.48
+                }
+/items:
+  get:
+    responses:
+      200:
+        body:
+          application/json:
+            schema: items
+            example: |
+              {
+                "items" : [
+                  {
+                    "name" : "Big Mac",
+                    "price" : 5.95,
+                    "description" : "Mmmmmmm",
+                    "sku" : "BM100"
+                  },
+                  {
+                    "name" : "Mc Flurry",
+                    "price" : 1.29,
+                    "description" : "Refreshing",
+                    "sku" : "MF500"
+                  }
+                ]
+              }
